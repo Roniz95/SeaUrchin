@@ -19,8 +19,8 @@ public class RestServer extends AbstractVerticle{
         JsonObject config = new JsonObject()
                 .put("host", "localhost")
                 .put("username", "root")
-                .put("password", "root")
-                .put("database", "dad_db")
+                .put("password", "Katerpillar95")
+                .put("database", "test_DB")
                 .put("port", 3306);
         mySQLClient =
                 MySQLClient.createShared(vertx, config);
@@ -38,10 +38,42 @@ public class RestServer extends AbstractVerticle{
                 });
         router.route().handler(BodyHandler.create());
         router.get("/test").handler(this::handleTest);
+        router.get("/test/DB_GET").handler(this::handleTestDB_GET);
+        router.put("/test/DB_POST").handler(this::handleTestDB_POST);
         router.put("/products/:productID/:property").handler(this::handleProductProperty);
-
     }
-
+    private void handleTestDB_POST(RoutingContext routingContext) {
+        mySQLClient.getConnection(connection-> {
+            if (connection.succeeded()) {
+                connection.result().query("INSERT INTO test_table (name)" +
+                                            "VALUES ('Marco');", result -> {
+                    if(result.succeeded()){
+                        String jsonResult = new JsonArray(result.result().getResults()).encodePrettily();
+                        routingContext.response().end(jsonResult);
+                    }
+                });
+            } else {
+                System.out.println(connection.cause().getMessage());
+                routingContext.response().setStatusCode(400);
+            }
+        });
+    }
+    private void handleTestDB_GET(RoutingContext routingContext) {
+        System.out.println("handling...");
+        mySQLClient.getConnection(connection-> {
+            if (connection.succeeded()) {
+                connection.result().query("SELECT * FROM test_table", result -> {
+                    if(result.succeeded()){
+                        String jsonResult = new JsonArray(result.result().getResults()).encodePrettily();
+                        routingContext.response().end(jsonResult);
+                    }
+                });
+            } else {
+                System.out.println(connection.cause().getMessage());
+                routingContext.response().setStatusCode(400);
+            }
+        });
+    }
     private void handleTest(RoutingContext routingContext) {
         System.out.println("we're getting pinged by: " + routingContext.request().remoteAddress().toString());
 
