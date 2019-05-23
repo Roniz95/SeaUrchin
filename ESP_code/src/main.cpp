@@ -6,38 +6,94 @@
 
 const char* ssid = "TP-LINK_AP_D62E";
 const char* password = "02860145";
-const char* http_server = "192.168.1.35";
+const char* http_server = "192.168.1.39";
 const char* http_server_port = "8081";
+const char* herd_password = "qwerty1234";
 // String clientId;
 
 WiFiClient espClient;
 PubSubClient client(espClient);
+String macAddr = WiFi.macAddress();
 long lastMsg = 0;
 long lastMsgRest = 0;
 char msg[50];
 int value = 0;
+String url = "http://";
+
+
+//function to reset board    
+void(*resetFunc) (void) = 0;
 
 void setup_wifi(){
   delay(10);
   randomSeed(micros());
+  macAddr.replace(":", "");
 
   Serial.println();
   Serial.print("connecting to wifi network: ");
   Serial.println(ssid);
 
   WiFi.begin(ssid, password);
-
+  //attemp to connect to wifi
   while(WiFi.status() != WL_CONNECTED){
     Serial.print(".");
     delay(500);
   }
-
+  
   Serial.println("");
   Serial.println("WiFi connected");
   Serial.print("current IP");
   Serial.println(WiFi.localIP());
+
+  
+}
+void craftUrl() {
+  url += http_server;
+    url += ":";
+    url += http_server_port;
 }
 
+bool registerDevice() {
+  HTTPClient http;
+  String requestUrl = url + "/devices/" + macAddr + "/register";
+  Serial.println(requestUrl);
+  StaticJsonDocument<JSON_OBJECT_SIZE(2)> JSONdocument;
+  JSONdocument["deviceType"] = "sensorArray";
+  JSONdocument["password"] = herd_password;
+  char JSONmessageBuffer[300];
+  serializeJsonPretty(JSONdocument, JSONmessageBuffer);
+
+  http.begin(requestUrl);
+  http.addHeader("Content-Type", "application/json");
+  Serial.println(JSONmessageBuffer);
+  int httpCode = http.POST(JSONmessageBuffer);
+  Serial.println(httpCode);
+  http.end();
+  if(httpCode == 204 || httpCode == 409) return true;
+  return false;
+  
+  
+  
+
+}
+void sendDatagram() {
+  HTTPClient http;
+  String requestUrl = url + "/devices/" + macAddr + "/datagram";
+  StaticJsonDocument<JSON_OBJECT_SIZE(2)> JSONdocument;
+  JSONdocument["temperature"] = 37.5;
+  JSONdocument["turbidity"] = 15;
+  char JSONmessageBuffer[300];
+  serializeJsonPretty(JSONdocument, JSONmessageBuffer);
+  http.begin(requestUrl);
+  int httpCode = http.POST(JSONmessageBuffer);
+  http.end();
+  if(httpCode == 204) {
+    Serial.println("datagram sent");
+    Serial.print(JSONmessageBuffer);
+  } else {
+    Serial.println("it was impossible to send the datagram");
+  }
+}
 void callback(char* topic, byte* payload, unsigned int length){
   Serial.print("Mensage recibido [canal: ");
   Serial.print(topic);
@@ -107,20 +163,43 @@ void makeGetRequest(){
     http.end();
 }
 
+void goToSleep() {
+  unsigned long counter = 0;
+  while(counter <(60*60*4)) {
+    delay(1000);
+    Serial.print("sleeping...");
+  }
+  resetFunc();
+}
+
 
 void setup() {
 
   Serial.begin(9600);
   setup_wifi();
+  craftUrl();
   client.setCallback(callback);
+
+  //attempt to register device
+  int attempts = 0;
+  while(registerDevice() != true) {
+     attempts++;
+     delay(5000);
+     if(attempts > 3) {
+       Serial.println("it was impossible to register the device");
+       goToSleep();
+       
+     }
+  }
+  Serial.println("device correctly connected to the herd");
 }
 
 void loop() {
   long now = millis();
   if (now - lastMsgRest > 2000) {
     lastMsgRest = now;
-    makeGetRequest();
+    sendDatagram();
   }
-  delay(500);
-  client.loop();
+  delay(1000);
+  
 }
