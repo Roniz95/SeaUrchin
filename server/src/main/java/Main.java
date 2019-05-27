@@ -10,8 +10,8 @@ public class Main extends AbstractVerticle {
         Launcher.executeCommand("run", Main.class.getName());
     }
     public void start(Future<Void> startFuture) {
-        vertx.deployVerticle(new RestServer());
-
+        vertx.deployVerticle(new DevicesServer());
+        vertx.deployVerticle(new ClientsServer());
     }
 
 }

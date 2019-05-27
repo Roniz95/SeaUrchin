@@ -3,10 +3,11 @@
 #include <PubSubClient.h>
 #include <ESP8266HTTPClient.h>
 #include <ArduinoJson.h>
-
+const char* ssid_2 ="wifi-huawei-lan";
 const char* ssid = "TP-LINK_AP_D62E";
 const char* password = "02860145";
-const char* http_server = "192.168.1.39";
+const char* password_2 = "sergio1995";
+const char* http_server = "192.168.43.226";
 const char* http_server_port = "8081";
 const char* herd_password = "qwerty1234";
 // String clientId;
@@ -31,9 +32,9 @@ void setup_wifi(){
 
   Serial.println();
   Serial.print("connecting to wifi network: ");
-  Serial.println(ssid);
+  Serial.println(ssid_2);
 
-  WiFi.begin(ssid, password);
+  WiFi.begin(ssid_2, password_2);
   //attemp to connect to wifi
   while(WiFi.status() != WL_CONNECTED){
     Serial.print(".");
@@ -200,6 +201,6 @@ void loop() {
     lastMsgRest = now;
     sendDatagram();
   }
-  delay(1000);
+  delay(10000);
   
 }

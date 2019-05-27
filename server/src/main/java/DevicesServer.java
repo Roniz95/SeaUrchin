@@ -2,6 +2,7 @@
 
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
+import io.vertx.core.MultiMap;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.asyncsql.AsyncSQLClient;
@@ -13,7 +14,7 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
-public class RestServer extends AbstractVerticle{
+public class DevicesServer extends AbstractVerticle{
     private String herdPws = "qwerty1234";
     private DateFormat dateFormat;
     private Date dateAndTime;
@@ -45,9 +46,12 @@ public class RestServer extends AbstractVerticle{
         router.route().handler(BodyHandler.create());
         router.get("/test").handler(this::handleTest);
         router.get("/test/DB_GET").handler(this::handleTestDB_GET);
+        router.get ("/test/parameters/*").handler(this::handleTestParam);
         router.post("/test/DB_POST").handler(this::handleTestDB_POST);
         router.post("/devices/:macaddr/datagram").handler(this::handleDatagram_POST);
         router.post("/devices/:macaddr/register").handler(this::handleDeviceRegistration_POST);
+
+        router.get("/herds/:herdId/");
     }
     //register a new datagram from a seaUrchin device to the server
     private void handleDeviceRegistration_POST(RoutingContext routingContext) {
@@ -153,8 +157,6 @@ public class RestServer extends AbstractVerticle{
         });
     }
     private void handleTest(RoutingContext routingContext) {
-        System.out.println("we're getting pinged by: " + routingContext.request().remoteAddress().toString());
-
         JsonObject respJson = new JsonObject();
         respJson.put("name", "Sergio");
         respJson.put("surname", "Placanica");
@@ -162,5 +164,10 @@ public class RestServer extends AbstractVerticle{
                 .putHeader("content-type", "application/json")
                 .end(respJson.encode());
     }
+    private void handleTestParam(RoutingContext routingContext){
+     MultiMap params = routingContext.request().params();
+        System.out.println(params.toString());
+        routingContext.response().setStatusCode(200).end();
 
+    }
 }
