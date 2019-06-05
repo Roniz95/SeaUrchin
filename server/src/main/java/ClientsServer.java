@@ -19,7 +19,8 @@ public class ClientsServer extends AbstractVerticle {
             .create()
             .addQueryParam("macAddr", ParameterType.GENERIC_STRING, false)
             .addQueryParam("fromDate", ParameterType.DATE, false)
-            .addQueryParam("toDate", ParameterType.DATE, false);
+            .addQueryParam("toDate", ParameterType.DATE, false)
+            .addQueryParam("status", ParameterType.GENERIC_STRING, false);
 
     public  void start(Future<Void> Future){
         JsonObject config = new JsonObject()
@@ -62,9 +63,23 @@ public class ClientsServer extends AbstractVerticle {
                     }
                 });
 
-        router.get("/herd/:herdId/datagrams").handler(this::handleDatagramReqAll_GET);
-        
+        router.get("/herds/:herdId/datagrams").handler(this::handleDatagramReqAll_GET);
+        router.put("/devices/:macaddr/sleep").handler(this::handleDeviceSleep_PUT);
+
     }
+
+    private void handleDeviceSleep_PUT(RoutingContext routingContext) {
+        JsonObject jsonObject = routingContext.getBodyAsJson();
+        String macAddr = routingContext.pathParam("macaddr");
+        mySQLClient.getConnection(connection -> {
+            if(connection.succeeded()) {
+                JsonArray values = new JsonArray();
+                values.add(macAddr);
+
+            }
+        });
+    }
+
     //TODO handle bag parameters in url
     private void handleDatagramReqAll_GET(RoutingContext routingContext) {
         mySQLClient.getConnection(connection -> {
@@ -103,14 +118,15 @@ public class ClientsServer extends AbstractVerticle {
     //TODO handle bad parameters in url
 
 
-    //return a JsonObject with "numberOfRows" and "datagrams"
+    //return a JsonObject with "numberOfRows" and "datagrams" ordered by device and timestamp
+    //filters : [macAddr, fromDate, toDate, deviceStatus]
     private void handleDatagramReqFiltered_GET(RoutingContext routingContext) {
         RequestParameters params = routingContext.get("parsedParameters");
         JsonArray queryParametersJson = new JsonArray();
         mySQLClient.getConnection(connection -> {
             if(connection.succeeded()) {
 
-                String preparedQuery = "SELECT * FROM datagram WHERE";
+                String preparedQuery = "select * from datagram, devices where macAddr = deviceMacAddr AND ";
                 if(params.queryParameter("macAddr") != null) {
 
                     System.out.println(params.queryParameter("macAddr").getString());
@@ -127,6 +143,12 @@ public class ClientsServer extends AbstractVerticle {
                     if (!queryParametersJson.isEmpty()) preparedQuery += " AND";
                     preparedQuery +=" recordTime < ?";
                     queryParametersJson.add(params.queryParameter("toDate").getString());
+                }
+                if(params.queryParameter("status") != null) {
+                    if(!queryParametersJson.isEmpty()) preparedQuery += " AND";
+                    preparedQuery += " deviceStatus = ?";
+                    queryParametersJson.add(params.queryParameter("status").getString());
+
                 }
                 preparedQuery += " ORDER BY deviceMacAddr, recordTime;";
                 System.out.println(preparedQuery);
