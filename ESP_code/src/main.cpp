@@ -240,7 +240,7 @@ void sendDatagram() {
   }
 }
 void callback(char* topic, byte* payload, unsigned int length){
-  Serial.print("Mensage recibido [canal: ");
+  Serial.print("Message received [channel: ");
   Serial.print(topic);
   Serial.println("]");
 
@@ -252,16 +252,18 @@ void callback(char* topic, byte* payload, unsigned int length){
   deserializeJson(doc, payload, length);
 
   const char* action = doc["action"];
-  const char* clientId_req = doc["clientId"];
+  String clientId_req = doc["clientId"];
+  Serial.println(clientId_req);
+  Serial.println(clientId);
 
-  Serial.printf("Nueva acciÃ³n recibida: ");
-  if (strcmp(action, "sleep") == 0 ){
+  Serial.printf("New action received: ");
+  if (strcmp(action, "sleep") == 0 & clientId.equals(clientId_req)){
     Serial.println("going to sleep");
     client.publish("devices_bus", "going to sleep...");
     goToSleep();
     
   }
-  if(strcmp(action, "reset") == 0) {
+  if(strcmp(action, "reset") == 0 & clientId_req.equals(clientId) ) {
     client.publish(channel_name, "resetting...");
     resetFunc();
   }
@@ -313,7 +315,7 @@ void loop() {
   long now = millis();
   if (now - lastMsgRest > 10000) {
     lastMsgRest = now;
-    //sendDatagram();
+    sendDatagram();
   }
   
   

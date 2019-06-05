@@ -88,7 +88,15 @@ public class DevicesServer extends AbstractVerticle {
         router.put("/devices/:macaddr/sleep").handler(this::handleDeviceSleep_PUT);
         router.put("/devices/:macaddr/reset").handler(this::handleDeviceReset_PUT);
         router.put("/devices/:macaddr/goOffline").handler(this::handleDeviceOffline_PUT);
+        router.put("/devices/sleep").handler(this::handleDeviceSleepAll_PUT);
 
+    }
+
+    private void handleDeviceSleepAll_PUT(RoutingContext routingContext) {
+        JsonObject jsonObject = new JsonObject();
+        jsonObject.put("action", "sleepAll");
+        mqttClient.publish("devices_bus", Buffer.buffer(jsonObject.encodePrettily()), MqttQoS.AT_LEAST_ONCE, false, false);
+        routingContext.response().end("sleepAll request sent");
     }
 
     private void handleDeviceOffline_PUT(RoutingContext routingContext) {
@@ -115,7 +123,7 @@ public class DevicesServer extends AbstractVerticle {
     private void handleDeviceReset_PUT(RoutingContext routingContext) {
         JsonObject jsonObject = new JsonObject();
         jsonObject.put("action", "reset");
-        jsonObject.put("clientId","sensorArray-" + routingContext.request().getParam("macaddr"));
+        jsonObject.put("clientId","ESP8266Client-" + routingContext.request().getParam("macaddr"));
         mqttClient.publish("devices_bus", Buffer.buffer(jsonObject.encodePrettily()), MqttQoS.AT_LEAST_ONCE, false, false);
         routingContext.response().end("reset request sent");
     }
@@ -123,7 +131,7 @@ public class DevicesServer extends AbstractVerticle {
     private void handleDeviceSleep_PUT(RoutingContext routingContext) {
         JsonObject jsonObject = new JsonObject();
         jsonObject.put("action", "sleep");
-        jsonObject.put("clientId", "sensorArray-" + routingContext.request().getParam("macaddr"));
+        jsonObject.put("clientId", "ESP8266Client-" + routingContext.request().getParam("macaddr"));
         mqttClient.publish("devices_bus", Buffer.buffer(jsonObject.encodePrettily()), MqttQoS.AT_LEAST_ONCE, false, false);
         routingContext.response().end("sleep request sent");
     }
