@@ -17,7 +17,6 @@ import io.vertx.mqtt.MqttClientOptions;
 import io.vertx.mqtt.MqttEndpoint;
 import io.vertx.mqtt.MqttServer;
 import io.vertx.mqtt.MqttTopicSubscription;
-import io.vertx.mqtt.messages.MqttMessage;
 import io.vertx.mqtt.messages.MqttPublishMessage;
 import io.netty.handler.codec.mqtt.MqttQoS;
 
@@ -50,11 +49,7 @@ public class DevicesServer extends AbstractVerticle {
 
             mqttClient.subscribe("devices_bus", MqttQoS.AT_LEAST_ONCE.value(), handler -> {
                 if (handler.succeeded()) {
-                    /*
-                     * En este punto el cliente ya estÃ¡ suscrito al servidor, puesto que se ha
-                     * ejecutado la funciÃ³n de handler
-                     */
-                    System.out.println("Cliente " + mqttClient.clientId() + " suscrito correctamente al canal");
+                    System.out.println("Client " + mqttClient.clientId() + "correctly subscribed");
                 }
             });
 
@@ -282,12 +277,6 @@ public class DevicesServer extends AbstractVerticle {
         System.out.println("Message published by " + endpoint.clientIdentifier() + " on the channel "
                 + message.topicName());
         System.out.println("message : " + message.payload().toString());
-
-        /*
-         * Obtenemos todos los clientes suscritos a ese topic (exceptuando el cliente
-         * que envÃ­a el mensaje) para asÃ­ poder reenviar el mensaje a cada uno de ellos.
-         * Es aquÃ­ donde nuestro cÃ³digo realiza las funciones de un broken MQTT
-         */
         System.out.println("Origin: " + endpoint.clientIdentifier());
         for (MqttEndpoint client : clientTopics.get(message.topicName())) {
             System.out.println("Destination: " + client.clientIdentifier());
