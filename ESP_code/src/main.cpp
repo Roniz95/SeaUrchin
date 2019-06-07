@@ -9,22 +9,23 @@
 
 
 //----------------SERVER VARIABLES------------
-const char* ssid = "TP-LINK_AP_D62E"; 
-const char* password = "02860145";
-const char* http_server = "192.168.1.37"; //http server address
-const char* http_server_port = "8081";
-const char* herd_password = "qwerty1234";
+const char* ssid = "TP-LINK_AP_D62E"; //SSID of the WiFi network.
+const char* password = "02860145"; //wifi password of the ssid network.
+const char* http_server = "192.168.1.42"; //http device server address.
+const char* http_server_port = "8081";  //http device server port
+const char* herd_password = "qwerty1234"; //password of the herd, leave it at it is for simulation purposes.
+const char* mqtt_server = "192.168.1.42";  //MQTT server address
+const char* channel_name = "devices_bus";
+
 String url = "http://";
 String macAddr = WiFi.macAddress();
-
 String clientId = "sensorArray-";
-const char* mqtt_server = "192.168.1.37";  //MQTT server address
-const char* channel_name = "devices_bus";
+
 
 
 //------------------SENSORS SETUP--------------
-#define ONE_WIRE_BUS 16  //pin D0 of ESP8266
-#define TURB_ANALOG D2
+#define ONE_WIRE_BUS D1  //digital pin D1 of nodeMCU
+#define TURB_ANALOG 2  //analog pin A0 of nodeMCU
 
 //temp sensor
 int n_temperature = 25;   //number of samples to average temperature
@@ -47,12 +48,13 @@ WiFiClient espClient;
 PubSubClient client(espClient);
 long lastMsg = 0;
 long lastMsgRest = 0;
-char msg[50];
 int value = 0;
 
 
 
-//function to reset board    
+//--------------CODE--------------------
+
+//function to reset the microcontroller    
 void(*resetFunc) (void) = 0;
 
 void setup_wifi(){
@@ -79,18 +81,19 @@ void setup_wifi(){
 
   
 }
+
 void craftUrl() {
   url += http_server;
     url += ":";
     url += http_server_port;
 }
-
+//this function simulate the reading of a sensor and return a pseudo random value inside (LOW, HI) range.
 float simulateReading(float LO, float HI) {
   
   float reading = LO + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(HI-LO)));
   return reading;
 }
-
+// the temperature sensor is read for n_turbidity times and an average is returned.
 float readTemperatureSensor() {
   float sum = 0.00;
   for (int i = 0; i < n_temperature, i++;) {
@@ -100,47 +103,26 @@ float readTemperatureSensor() {
   return  (sum / n_temperature);
   
 }
-
-void setupTurbiditySensor() {
-  pinMode(buttoncalib, INPUT_PULLUP); //initializes digital pin 2 as an input with pull-up resistance.
-  
+//get the calibration from the device, should be manually do when uploading the code.
+void setupTurbiditySensor() {  
   EEPROM.get(0, Vclear);  // recovers the last Vclear calibration value stored in ROM.
   delay(3000);  // Pause for 3 seg
 }
-
+// the turbidity sensor is read for n_turbidity times and an average is returned.
 float readTurbiditySensor() {
-  pushcalib = digitalRead(2);  // push button status
-  float sum = 0.00;
-  
-  // If the push button is not pushed, do the normal sensing routine:
-  if (pushcalib == HIGH) {
+  float sum = 0.00;  
         for (int i=0; i < n_turbidity; i++){
         sum += analogRead(TURB_ANALOG); // read the input on analog pin 1 (turbidity sensor analog output)      
         delay(10);
         }       
     sensorValue = sum / n_turbidity;    // average the n values  
     voltage = sensorValue * (5.000 / 1023.000); // Convert analog (0-1023) to voltage (0 - 5V)
-    
     turbidity = 100.00 - (voltage / Vclear) * 100.00; // as relative percentage; 0% = clear water; 
-    
-    EEPROM.put(0, Vclear); // look up the calibration voltage in use
-      
-    } else {
+          
+     
 
-    delay(2000); 
-    
-        for (int i=0; i < n_turbidity; i++){
-        sum += analogRead(TURB_ANALOG); // read the input on analog pin
-        delay(10);
-        }
-    sensorValue = sum / n_turbidity;
-    Vclear = sensorValue * (5.000 / 1023.000); // Converts analog (0-1023) to voltage (0-5V):
-    EEPROM.put(0, Vclear);  // stores Vclear in ROM
-    delay(1000);
-    }  
     return sensorValue;
 }
-
 
 
 bool registerDevice() {
@@ -179,9 +161,6 @@ void reconnect() {
     if (client.connect(clientId.c_str())) {
       String printLine = "   client " + clientId + " connected" + mqtt_server;
       Serial.println(printLine);
-      // Publicamos un mensaje en el canal indicando que el cliente se ha
-      // conectado. Esto avisarÃ­a al resto de clientes que hay un nuevo
-      // dispositivo conectado al canal. Puede ser interesante en algunos casos.
       String body = "device with ID = ";
       body += clientId;
       body += " connected to channel ";
@@ -192,11 +171,13 @@ void reconnect() {
     } else {
       Serial.print("unable to connect to MQTT channel, rc=");
       Serial.print(client.state());
-      Serial.println(". Intentando de nuevo en 5 segundos.");
+      Serial.println("trying again in 5 seconds");
       delay(5000);
     }
   }
 }
+
+//notify the device server that the device is going offline.
 void goOffline() {
   HTTPClient http;
   String requestUrl = url + "/devices/" + macAddr + "/goOffline";
@@ -209,24 +190,25 @@ void goOffline() {
     Serial.print("there was a problem with the offline request");
   }
 }
+
+//make the device sleep, it will stay in this state until a reset command is receive on MQTT.
 void goToSleep() {
-  unsigned long counter = 0;
   goOffline();
-  while(counter <(60*60*4)) {
+  while(true) {
     delay(1000);
-    Serial.print("sleeping...");
+    Serial.println("sleeping...");
     client.loop();
   }
-  resetFunc();
+  
 }
 
-
+//this function read from the sensors and send the datagram to the deviceServer
 void sendDatagram() {
   HTTPClient http;
   String requestUrl = url + "/devices/" + macAddr + "/datagram";
   StaticJsonDocument<JSON_OBJECT_SIZE(2)> JSONdocument;
-  JSONdocument["temperature"] = simulateReading(35, 37);
-  JSONdocument["turbidity"] = simulateReading(15, 17);
+  JSONdocument["temperature"] = simulateReading(25, 28);
+  JSONdocument["turbidity"] = simulateReading(10, 60);
   char JSONmessageBuffer[300];
   serializeJsonPretty(JSONdocument, JSONmessageBuffer);
   http.begin(requestUrl);
@@ -239,6 +221,8 @@ void sendDatagram() {
     Serial.println("it was impossible to send the datagram");
   }
 }
+
+//function called when  MQTT message is received
 void callback(char* topic, byte* payload, unsigned int length){
   Serial.print("Message received [channel: ");
   Serial.print(topic);
@@ -269,25 +253,7 @@ void callback(char* topic, byte* payload, unsigned int length){
   }
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 void setup() {
-
-  srand (static_cast <unsigned> (time(0)));
   Serial.begin(9600);
   setup_wifi();
   sensors.begin();
@@ -313,7 +279,7 @@ void loop() {
   if(!client.connected()) reconnect();
   client.loop();
   long now = millis();
-  if (now - lastMsgRest > 10000) {
+  if (now - lastMsgRest > 2000) {
     lastMsgRest = now;
     sendDatagram();
   }

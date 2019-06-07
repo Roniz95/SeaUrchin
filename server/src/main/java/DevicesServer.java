@@ -272,33 +272,25 @@ public class DevicesServer extends AbstractVerticle {
 
     private static void publishHandlerMqtt(MqttEndpoint endpoint) {
         endpoint.publishHandler(message -> {
-            /*
-             * Suscribimos un handler cuando se solicite una publicaciÃ³n de un mensaje en un
-             * topic
-             */
             handleMessage(message, endpoint);
         }).publishReleaseHandler(messageId -> {
-            /*
-             * Suscribimos un handler cuando haya finalizado la publicaciÃ³n del mensaje en
-             * el topic
-             */
             endpoint.publishComplete(messageId);
         });
     }
 
     private static void handleMessage(MqttPublishMessage message, MqttEndpoint endpoint) {
-        System.out.println("Mensaje publicado por el cliente " + endpoint.clientIdentifier() + " en el topic "
+        System.out.println("Message published by " + endpoint.clientIdentifier() + " on the channel "
                 + message.topicName());
-        System.out.println("    Contenido del mensaje: " + message.payload().toString());
+        System.out.println("message : " + message.payload().toString());
 
         /*
          * Obtenemos todos los clientes suscritos a ese topic (exceptuando el cliente
          * que envÃ­a el mensaje) para asÃ­ poder reenviar el mensaje a cada uno de ellos.
          * Es aquÃ­ donde nuestro cÃ³digo realiza las funciones de un broken MQTT
          */
-        System.out.println("Origen: " + endpoint.clientIdentifier());
+        System.out.println("Origin: " + endpoint.clientIdentifier());
         for (MqttEndpoint client : clientTopics.get(message.topicName())) {
-            System.out.println("Destino: " + client.clientIdentifier());
+            System.out.println("Destination: " + client.clientIdentifier());
             if (!client.clientIdentifier().equals(endpoint.clientIdentifier()))
                 try {
                     client.publish(message.topicName(), message.payload(), message.qosLevel(), message.isDup(),
@@ -306,26 +298,17 @@ public class DevicesServer extends AbstractVerticle {
                         client.publishComplete(idHandler);
                     });
                 } catch (Exception e) {
-                    System.out.println("Error, no se pudo enviar mensaje.");
+                    System.out.println("Error, can't send the message");
                 }
         }
 
         if (message.qosLevel() == MqttQoS.AT_LEAST_ONCE) {
             String topicName = message.topicName();
             switch (topicName) {
-                /*
-                 * Se podrÃ­a hacer algo con el mensaje como, por ejemplo, almacenar un registro
-                 * en la base de datos
-                 */
+
             }
-            // EnvÃ­a el ACK al cliente de que el mensaje ha sido publicado
             endpoint.publishAcknowledge(message.messageId());
         } else if (message.qosLevel() == MqttQoS.EXACTLY_ONCE) {
-            /*
-             * EnvÃ­a el ACK al cliente de que el mensaje ha sido publicado y cierra el canal
-             * para este mensaje. AsÃ­ se evita que los mensajes se publiquen por duplicado
-             * (QoS)
-             */
             endpoint.publishRelease(message.messageId());
         }
     }
