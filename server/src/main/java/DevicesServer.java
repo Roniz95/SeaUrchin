@@ -60,7 +60,7 @@ public class DevicesServer extends AbstractVerticle {
         JsonObject config = new JsonObject()
                 .put("host", "localhost")
                 .put("username", "root")
-                .put("password", "Katerpillar95")
+                .put("password", "*******")
                 .put("database", "seaUrchin")
                 .put("port", 3306);
         mySQLClient = MySQLClient.createShared(vertx, config);
